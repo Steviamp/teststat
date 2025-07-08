@@ -1,0 +1,137 @@
+﻿@page "/historical"
+@rendermode InteractiveServer
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components
+@using UCStatistics.Services
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Components.Tables
+
+@inject ReportService ReportService
+
+<PageTitle>Historical Statistics</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Historical Statistics</MudText>
+
+<!-- Filter Summary Card -->
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <MudText Typo="Typo.h6" Class="mb-2">Current Filters:</MudText>
+        <MudText>
+            <strong>Date Range:</strong> @criteria.DateFrom.ToString("yyyy-MM-dd") to @criteria.DateTo.ToString("yyyy-MM-dd")
+        </MudText>
+        @if (criteria.Level3Nr.HasValue)
+        {
+            <MudText>
+                <strong>Area:</strong> @GetAreaName(criteria.Level3Nr.Value)
+            </MudText>
+        }
+        @if (criteria.Level2Nr.HasValue)
+        {
+            <MudText>
+                <strong>City:</strong> @GetCityName(criteria.Level2Nr.Value)
+            </MudText>
+        }
+        @if (criteria.OfficeNr.HasValue)
+        {
+            <MudText>
+                <strong>Branch:</strong> @GetOfficeName(criteria.OfficeNr.Value)
+            </MudText>
+        }
+        else
+        {
+            <MudText>
+                <strong>Branch:</strong> All Branches
+            </MudText>
+        }
+    </MudCardContent>
+    <MudCardActions>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="LoadData"
+                   StartIcon="Icons.Material.Filled.Refresh">
+            Refresh Data
+        </MudButton>
+    </MudCardActions>
+</MudCard>
+
+@if (isLoading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+    <MudAlert Severity="Severity.Info">Loading historical data...</MudAlert>
+}
+else if (data != null && data.Any())
+{
+    <MudCard>
+        <MudCardContent>
+            <div style="overflow-x: auto;">
+                <SummaryTable Data="data" />
+            </div>
+        </MudCardContent>
+    </MudCard>
+}
+else if (data != null)
+{
+    <MudAlert Severity="Severity.Warning">
+        No data available for @criteria.DateFrom.ToString("yyyy-MM-dd") to @criteria.DateTo.ToString("yyyy-MM-dd").
+    </MudAlert>
+}
+
+@code {
+    private List<OfficeInfo> officesList = new();
+    private FilterCriteria criteria = new FilterCriteria
+        {
+            DateFrom = DateTime.Today.AddDays(-7),
+            DateTo = DateTime.Today,
+            Level2Nr = null,
+            Level3Nr = null,
+            OfficeNr = null
+        };
+    private IEnumerable<SummaryDto> data;
+    private bool isLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        officesList = (await ReportService.GetOfficesAsync()).ToList();
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        Console.WriteLine($"LoadData called: {DateTime.Now}");
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            data = await ReportService.GetHistoricalAsync(criteria);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading data: {ex.Message}");
+            // You could show a MudAlert here for error handling
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetAreaName(int level3Nr)
+    {
+        return officesList.FirstOrDefault(x => x.Level3Nr == level3Nr)?.Level3Name ?? "Unknown";
+    }
+
+    private string GetCityName(int level2Nr)
+    {
+        return officesList.FirstOrDefault(x => x.Level2Nr == level2Nr)?.Level2Name ?? "Unknown";
+    }
+
+    private string GetOfficeName(int officeNr)
+    {
+        return officesList.FirstOrDefault(x => x.OfficeNr == officeNr)?.OfficeName ?? "Unknown";
+    }
+}
