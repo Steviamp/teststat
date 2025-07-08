@@ -1,0 +1,160 @@
+﻿@using UCStatistics.Shared.DTOs
+@using MudBlazor
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">
+            <MudIcon Icon="@Icons.Material.Filled.FilterList" Class="mr-3" /> Filter Options
+        </MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudContainer Style="max-width: 600px;">
+            <MudGrid>
+                <!-- Date Range -->
+                <MudItem xs="6">
+                    <MudDatePicker Label="From Date"
+                                   Date="FilterCriteria.DateFrom"
+                                   DateChanged="OnDateFromChanged"
+                                   Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="6">
+                    <MudDatePicker Label="To Date"
+                                   Date="FilterCriteria.DateTo"
+                                   DateChanged="OnDateToChanged"
+                                   Variant="Variant.Outlined" />
+                </MudItem>
+
+                <!-- Area Selection -->
+                <MudItem xs="12">
+                    <MudSelect T="int?"
+                               Value="FilterCriteria.Level3Nr"
+                               ValueChanged="OnAreaChanged"
+                               Label="Area"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        @foreach (var area in Areas.GroupBy(x => new { x.Level3Nr, x.Level3Name }).OrderBy(x => x.Key.Level3Name))
+                        {
+                            <MudSelectItem Value="@area.Key.Level3Nr">@area.Key.Level3Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- City Selection -->
+                <MudItem xs="12">
+                    <MudSelect T="int?"
+                               Value="FilterCriteria.Level2Nr"
+                               ValueChanged="OnCityChanged"
+                               Label="City"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        @foreach (var city in GetFilteredCities())
+                        {
+                            <MudSelectItem Value="@city.Level2Nr">@city.Level2Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+
+                <!-- Branch Selection -->
+                <MudItem xs="12">
+                    <MudSelect T="int?"
+                               Value="FilterCriteria.OfficeNr"
+                               ValueChanged="OnBranchChanged"
+                               Label="Branch"
+                               Variant="Variant.Outlined"
+                               Clearable="true">
+                        <MudSelectItem Value="@((int?)null)">All Branches</MudSelectItem>
+                        @foreach (var office in GetFilteredOffices())
+                        {
+                            <MudSelectItem Value="@office.OfficeNr">@office.OfficeName</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudContainer>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cancel</MudButton>
+        <MudButton Color="Color.Primary"
+                   Variant="Variant.Filled"
+                   OnClick="Apply"
+                   StartIcon="@Icons.Material.Filled.Check">
+            Apply Filters
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; } = default!;
+
+    [Parameter] public FilterCriteria FilterCriteria { get; set; } = new();
+    [Parameter] public IEnumerable<OfficeInfo> Areas { get; set; } = new List<OfficeInfo>();
+
+    private void OnDateFromChanged(DateTime? date)
+    {
+        FilterCriteria.DateFrom = date ?? DateTime.Today;
+    }
+
+    private void OnDateToChanged(DateTime? date)
+    {
+        FilterCriteria.DateTo = date ?? DateTime.Today;
+    }
+
+    private void OnAreaChanged(int? value)
+    {
+        FilterCriteria.Level3Nr = value;
+        FilterCriteria.Level2Nr = null; // Reset city when area changes
+        FilterCriteria.OfficeNr = null; // Reset office when area changes
+        StateHasChanged();
+    }
+
+    private void OnCityChanged(int? value)
+    {
+        FilterCriteria.Level2Nr = value;
+        FilterCriteria.OfficeNr = null; // Reset office when city changes
+        StateHasChanged();
+    }
+
+    private void OnBranchChanged(int? value)
+    {
+        FilterCriteria.OfficeNr = value;
+    }
+
+    private IEnumerable<OfficeInfo> GetFilteredCities()
+    {
+        var cities = Areas.AsEnumerable();
+
+        if (FilterCriteria.Level3Nr.HasValue)
+        {
+            cities = cities.Where(x => x.Level3Nr == FilterCriteria.Level3Nr.Value);
+        }
+
+        return cities.GroupBy(x => new { x.Level2Nr, x.Level2Name })
+                    .Select(x => x.First())
+                    .OrderBy(x => x.Level2Name);
+    }
+
+    private IEnumerable<OfficeInfo> GetFilteredOffices()
+    {
+        var offices = Areas.AsEnumerable();
+
+        if (FilterCriteria.Level3Nr.HasValue)
+        {
+            offices = offices.Where(x => x.Level3Nr == FilterCriteria.Level3Nr.Value);
+        }
+
+        if (FilterCriteria.Level2Nr.HasValue)
+        {
+            offices = offices.Where(x => x.Level2Nr == FilterCriteria.Level2Nr.Value);
+        }
+
+        return offices.OrderBy(x => x.OfficeName);
+    }
+
+    void Cancel() => MudDialog.Cancel();
+
+    void Apply()
+    {
+        MudDialog.Close(DialogResult.Ok(FilterCriteria));
+    }
+}
