@@ -1,0 +1,96 @@
+﻿@inherits LayoutComponentBase
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Services
+@using MudBlazor
+@inject ReportService ReportService
+
+<MudThemeProvider />
+<MudSnackbarProvider MaxDisplayedSnackbars="3" PreventDuplicates="true" />
+<MudDialogProvider />
+<MudLayout>
+    <MudAppBar Elevation="1" Color="Color.Primary">
+        <MudText Typo="Typo.h6">UniCredit Queuing Statistics</MudText>
+        <MudSpacer />
+
+        <!-- Navigation Menu -->
+        <MudButton Href="/historical"
+                   Variant="@GetVariant("/historical")"
+                   Color="@GetColor("/historical")"
+                   StartIcon="@Icons.Material.Filled.BarChart"
+                   Class="mr-2">
+            Historical
+        </MudButton>
+
+        <MudButton Href="/servicesummary"
+                   Variant="@GetVariant("/servicesummary")"
+                   Color="@GetColor("/servicesummary")"
+                   StartIcon="@Icons.Material.Filled.List"
+                   Class="mr-2">
+            Service Summary
+        </MudButton>
+
+        <MudButton Href="/live"
+                   Variant="@GetVariant("/live")"
+                   Color="@GetColor("/live")"
+                   StartIcon="@Icons.Material.Filled.AccessTime"
+                   Class="mr-2">
+            Live
+        </MudButton>
+
+        <MudButton Href="/settings"
+                   Variant="@GetVariant("/settings")"
+                   Color="@GetColor("/settings")"
+                   StartIcon="@Icons.Material.Filled.Settings"
+                   Class="mr-4">
+            Settings
+        </MudButton>
+
+    </MudAppBar>
+
+    <MudMainContent>
+        <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+            <CascadingValue Value="GlobalFilterCriteria">
+                @Body
+            </CascadingValue>
+        </MudContainer>
+    </MudMainContent>
+</MudLayout>
+       
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private Color GetColor(string href)
+    {
+        return Navigation.Uri.Contains(href)
+            ? Color.Primary
+            : Color.Inherit;
+    } 
+    private FilterCriteria GlobalFilterCriteria { get; set; } = new FilterCriteria
+        {
+            DateFrom = DateTime.Today.AddDays(-7),
+            DateTo = DateTime.Today,
+            Level2Nr = null,
+            Level3Nr = null,
+            OfficeNr = null
+        };
+
+    private List<OfficeInfo> OfficesList { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            OfficesList = (await ReportService.GetOfficesAsync()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading offices: {ex.Message}");
+        }
+    }
+
+    private Variant GetVariant(string href)
+    {
+        return Navigation.Uri.Contains(href) ? Variant.Filled : Variant.Text;
+    }
+}
