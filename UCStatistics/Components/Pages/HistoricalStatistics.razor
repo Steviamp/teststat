@@ -1,0 +1,277 @@
+﻿@rendermode InteractiveServer
+@page "/historical"
+
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using System.Threading.Tasks
+@using Microsoft.AspNetCore.Components
+@using UCStatistics.Services
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Components.Tables
+@using MudBlazor
+
+@inject ReportService ReportService
+@inject IDialogService DialogService
+
+<MudThemeProvider />
+<MudSnackbarProvider MaxDisplayedSnackbars="3" PreventDuplicates="true" />
+<MudDialogProvider />
+<MudPopoverProvider />
+
+<PageTitle>Historical Statistics</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Historical Statistics</MudText>
+
+<!-- Filter Summary Card -->
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudGrid GutterSize="GutterSize.Small" AlignItems="Center" Justify="Justify.FlexStart">
+                <!-- Date From -->
+                <MudItem xs="12" sm="5" md="3">
+                    <MudDatePicker Label="Date From"
+                    Date="criteria.DateFrom"
+                    DateChanged="d => OnDateChanged(d, true)"
+                    Variant="Variant.Outlined"
+                    Clearable="false" />
+                </MudItem>
+                <!-- Date To -->
+                <MudItem xs="12" sm="5" md="3">
+                    <MudDatePicker Label="Date To"
+                    Date="criteria.DateTo"
+                    DateChanged="d => OnDateChanged(d, false)"
+                    Variant="Variant.Outlined"
+                    Clearable="false" />
+                </MudItem>
+
+                <!-- Branch Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="Branch"
+                    Placeholder="All Branches"
+                    Value="criteria.OfficeNr"
+                    ValueChanged="OnBranchChanged"
+                    ValueExpression="() => criteria.OfficeNr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <!-- default “All Branches” when null -->
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Branches
+                        </MudSelectItem>
+                        @foreach (var b in BranchOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@b.Id">
+                                @b.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <!-- Area Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="Area"
+                    Placeholder="All Areas"
+                    Value="criteria.Level3Nr"
+                    ValueChanged="OnAreaChanged"
+                    ValueExpression="() => criteria.Level3Nr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <!-- “All Areas” when null -->
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Areas
+                        </MudSelectItem>
+                        @foreach (var a in AreaOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@a.Id">
+                                @a.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <!-- City Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="City"
+                    Placeholder="All Cities"
+                    Value="criteria.Level2Nr"
+                    ValueChanged="OnCityChanged"
+                    ValueExpression="() => criteria.Level2Nr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Cities
+                        </MudSelectItem>
+                        @foreach (var c in CityOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@c.Id">
+                                @c.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudCardContent>
+</MudCard>
+
+@* @if (isLoading)
+{
+    <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-4" />
+    <MudAlert Severity="Severity.Info">Loading historical data...</MudAlert>
+}
+else if (data != null && data.Any())
+{
+    <MudCard>
+        <MudCardContent>
+            <div style="overflow-x: auto;">
+                <SummaryTable Data="data" />
+            </div>
+        </MudCardContent>
+    </MudCard>
+}
+else if (data != null)
+{
+    <MudAlert Severity="Severity.Warning">
+        No data available for @criteria.DateFrom.ToString("yyyy-MM-dd") to @criteria.DateTo.ToString("yyyy-MM-dd").
+    </MudAlert>
+} *@
+<MudTabs Rounded="true" ActivePanelIndexChanged="@(index => OnTabChanged(index))">
+    <MudTabPanel Text="By Branch">
+        @if (isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (data?.Any() ?? false)
+        {
+            <SummaryTable Data="data" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">No data for selected filters.</MudAlert>
+        }
+
+    </MudTabPanel>
+
+    <MudTabPanel Text="By Service">
+        @if (isServiceLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (serviceData?.Any() ?? false)
+        {
+            <ServiceSummaryTable Data="serviceData" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">No service data for selected filters.</MudAlert>
+        }
+
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private int activeTabIndex = 0;
+    private List<OfficeInfo> officesList = new();
+    private FilterCriteria criteria = new FilterCriteria
+        {
+            DateFrom = DateTime.Today.AddDays(-7),
+            DateTo = DateTime.Today
+        };
+    private IEnumerable<SummaryDto> data;
+    private bool isLoading;
+
+    private IEnumerable<ServiceSummaryDto> serviceData;
+    private bool isServiceLoading;
+
+    protected override async Task OnInitializedAsync()
+    {
+        officesList = (await ReportService.GetOfficesAsync()).ToList();
+        await LoadData();
+    }
+    private IEnumerable<(int Id, string Name)> BranchOptions
+    => officesList
+        .Select(x => (x.OfficeNr, x.OfficeName))
+        .Distinct();
+
+    private async Task OnBranchChanged(int? newBranch)
+    {
+        criteria.OfficeNr = newBranch;
+        await LoadCurrentTab();
+    }
+
+    private async Task OnDateChanged(DateTime? date, bool isFrom)
+    {
+        if (date is null) return;
+        if (isFrom)
+            criteria.DateFrom = date.Value;
+        else
+            criteria.DateTo = date.Value;
+        await LoadCurrentTab();
+    }
+
+    private IEnumerable<(int Id, string Name)> AreaOptions =>
+    officesList
+      .Select(x => (x.Level3Nr, x.Level3Name))
+      .Distinct();
+
+    private async Task OnAreaChanged(int? newArea)
+    {
+        criteria.Level3Nr = newArea;
+        if (newArea == null)
+            criteria.OfficeNr = null;
+
+        await LoadCurrentTab();
+    }
+
+    private IEnumerable<(int Id, string Name)> CityOptions =>
+    officesList
+      .Where(o => criteria.Level3Nr == null || o.Level3Nr == criteria.Level3Nr)
+      .Select(o => (o.Level2Nr, o.Level2Name))
+      .Distinct();
+
+    private async Task OnCityChanged(int? newCity)
+    {
+        criteria.Level2Nr = newCity;
+        if (newCity == null)
+            criteria.OfficeNr = null;
+
+        await LoadCurrentTab();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        data = await ReportService.GetHistoricalAsync(criteria);
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadServiceData()
+    {
+        isServiceLoading = true;
+        StateHasChanged();
+
+        serviceData = await ReportService.GetServiceSummaryAsync(criteria);
+
+        isServiceLoading = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadCurrentTab()
+    {
+        if (activeTabIndex == 0)
+            await LoadData();
+        else
+            await LoadServiceData();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        activeTabIndex = index;
+        await LoadCurrentTab();
+    }
+}
