@@ -1,0 +1,232 @@
+﻿@page "/live"
+@rendermode InteractiveServer
+@using MudBlazor
+@using UCStatistics.Services
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Components.Tables
+@inject ReportService ReportService
+@inject IDialogService DialogService
+
+
+<MudThemeProvider />
+<MudSnackbarProvider MaxDisplayedSnackbars="3" PreventDuplicates="true" />
+<MudDialogProvider />
+<MudPopoverProvider />
+
+<PageTitle>Live Statistics</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Live Statistics</MudText>
+
+<!-- Filter Summary Card -->
+<MudCard Class="mb-4">
+    <MudCardContent>
+        <MudPaper Elevation="1" Class="pa-4 mb-4">
+            <MudGrid GutterSize="GutterSize.Small" AlignItems="Center" Justify="Justify.FlexStart">
+                <!-- Branch Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="Branch"
+                    Placeholder="All Branches"
+                    Value="criteria.OfficeNr"
+                    ValueChanged="OnBranchChanged"
+                    ValueExpression="() => criteria.OfficeNr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <!-- default “All Branches” when null -->
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Branches
+                        </MudSelectItem>
+                        @foreach (var b in BranchOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@b.Id">
+                                @b.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <!-- Area Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="Area"
+                    Placeholder="All Areas"
+                    Value="criteria.Level3Nr"
+                    ValueChanged="OnAreaChanged"
+                    ValueExpression="() => criteria.Level3Nr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <!-- “All Areas” when null -->
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Areas
+                        </MudSelectItem>
+                        @foreach (var a in AreaOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@a.Id">
+                                @a.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <!-- City Filter -->
+                <MudItem xs="12" sm="4" md="2">
+                    <MudSelect T="int?"
+                    Label="City"
+                    Placeholder="All Cities"
+                    Value="criteria.Level2Nr"
+                    ValueChanged="OnCityChanged"
+                    ValueExpression="() => criteria.Level2Nr"
+                    Clearable="true"
+                    Variant="Variant.Outlined">
+                        <MudSelectItem T="int?" Value="@( (int?)null )">
+                            All Cities
+                        </MudSelectItem>
+                        @foreach (var c in CityOptions)
+                        {
+                            <MudSelectItem T="int?" Value="@c.Id">
+                                @c.Name
+                            </MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+    </MudCardContent>
+</MudCard>
+<MudTabs>
+    <MudTabPanel Text="By Branch">
+        @* <div class="d-flex justify-space-between align-center mb-3">
+            <MudText Typo="Typo.h6">Branch Statistics</MudText>
+            <div class="d-flex gap-2">
+                <MudButton Color="Color.Success"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="ExportBranchData"
+                           Disabled="!(data?.Any() ?? false)">
+                    Export to Excel
+                </MudButton>
+                <MudButton Color="Color.Success"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="ExportIndividualTicketsData"
+                           Disabled="!(data?.Any() ?? false)">
+                    Export Individual tickets to Excel
+                </MudButton>
+            </div>
+        </div> *@
+        @if (isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (data?.Any() ?? false)
+        {
+            <LiveBranchTable Data="data" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">No data for selected filters.</MudAlert>
+        }
+
+    </MudTabPanel>
+    </MudTabs>
+
+@code {
+    private List<OfficeInfo> officesList = new();
+
+    private IEnumerable<LiveBranchDto> data;
+    private bool isLoading;
+    private FilterCriteria criteria = new FilterCriteria{};
+    
+    protected override async Task OnInitializedAsync()
+    {
+        officesList = (await ReportService.GetOfficesAsync()).ToList();
+        await LoadData();
+    }
+
+    private IEnumerable<(int Id, string Name)> BranchOptions
+    => officesList
+        .Select(x => (x.OfficeNr, x.OfficeName))
+        .Distinct();
+
+    private async Task OnBranchChanged(int? newBranch)
+    {
+        criteria.OfficeNr = newBranch;
+        await LoadData();
+    }
+
+    private IEnumerable<(int Id, string Name)> AreaOptions =>
+        officesList
+        .Select(x => (x.Level3Nr, x.Level3Name))
+        .Distinct();
+
+    private async Task OnAreaChanged(int? newArea)
+    {
+        criteria.Level3Nr = newArea;
+        if (newArea == null)
+            criteria.OfficeNr = null;
+
+        await LoadData();
+    }
+
+    private IEnumerable<(int Id, string Name)> CityOptions =>
+    officesList
+      .Where(o => criteria.Level3Nr == null || o.Level3Nr == criteria.Level3Nr)
+      .Select(o => (o.Level2Nr, o.Level2Name))
+      .Distinct();
+
+    private async Task OnCityChanged(int? newCity)
+    {
+        criteria.Level2Nr = newCity;
+        if (newCity == null)
+            criteria.OfficeNr = null;
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        data = await ReportService.GetLiveBranchSummaryAsync(criteria);
+
+        isLoading = false;
+        StateHasChanged();
+    }
+
+    // private async Task ExportBranchData()
+    // {
+    //     try
+    //     {
+    //         var excelData = await ReportService.ExportSummaryToExcelAsync(criteria);
+    //         var fileName = $"Branch_Summary_{criteria.DateFrom:yyyy-MM-dd}_to_{criteria.DateTo:yyyy-MM-dd}.xlsx";
+    //         await DownloadFileAsync(excelData, fileName);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         // Handle error - you could show a snackbar here
+    //         Console.WriteLine($"Export error: {ex.Message}");
+    //     }
+
+    // }
+
+    // private async Task ExportIndividualTicketsData()
+    // {
+    //     try
+    //     {
+    //         var excelData = await ReportService.ExportIndividualTicketsToExcelAsync(criteria);
+    //         var fileName = $"Tickets_Summary_{criteria.DateFrom:yyyy-MM-dd}_to_{criteria.DateTo:yyyy-MM-dd}.xlsx";
+    //         await DownloadFileAsync(excelData, fileName);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         // Handle error - you could show a snackbar here
+    //         Console.WriteLine($"Export error: {ex.Message}");
+    //     }
+    // }
+
+
+    // private async Task DownloadFileAsync(byte[] fileData, string fileName)
+    // {
+    //     var base64 = Convert.ToBase64String(fileData);
+    //     await JSRuntime.InvokeVoidAsync("downloadFile", base64, fileName);
+    // }
+}

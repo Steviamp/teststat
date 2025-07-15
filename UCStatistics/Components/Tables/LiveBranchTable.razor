@@ -1,0 +1,54 @@
+﻿@using MudBlazor
+@using UCStatistics.Shared.DTOs
+
+<MudTable Items="Data"
+          Bordered="true"
+          Striped="true"
+          Hover="true"
+          Breakpoint="Breakpoint.Sm"
+          Class="table-responsive">
+    <HeaderContent>
+        <MudTh Style="font-weight: bold;">O. Nr</MudTh>
+        <MudTh Style="font-weight: bold;">Branch Name</MudTh>
+        <MudTh Style="font-weight: bold;">Installed Cashiers</MudTh>
+        <MudTh Style="font-weight: bold;">Active Cashiers</MudTh>
+        <MudTh Style="font-weight: bold;">Waiting Customers</MudTh>
+        <MudTh Style="font-weight: bold;">Plastic Cards</MudTh>
+        <MudTh Style="font-weight: bold;">Digital Cards</MudTh>
+        <MudTh Style="font-weight: bold;">Golden Clients Waiting</MudTh>
+        <MudTh Style="font-weight: bold;">Golden Clients Served</MudTh>
+        <MudTh Style="font-weight: bold;">Personal Queue Waiting</MudTh>
+        <MudTh Style="font-weight: bold;">Personal Queue Served</MudTh>
+        <MudTh Style="font-weight: bold;">Number of Digital Tickets</MudTh>
+        <MudTh Style="font-weight: bold;">Average Waiting Time</MudTh>
+        <MudTh Style="font-weight: bold;">Average Service Time</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="O. Nr">@context.OfficeNr</MudTd>
+        <MudTd DataLabel="Branch Name">@context.OfficeName</MudTd>
+        <MudTd DataLabel="Installed Cashiers">@context.InstalledCashiers</MudTd>
+        <MudTd DataLabel="Active Cashiers">@context.ActiveCashiers</MudTd>
+        <MudTd DataLabel="Waiting Customers">@context.WaitingCustomers</MudTd>
+        <MudTd DataLabel="Plastic Cards">@context.NumberOfPlasticCards</MudTd>
+        <MudTd DataLabel="Digital Cards">@context.NumberOfDigitalCards</MudTd>
+        <MudTd DataLabel="Golden Clients Waiting">@context.NumberOfGoldenClientsWaiting</MudTd>
+        <MudTd DataLabel="Golden Clients Served">@context.NumberOfGoldenClientsServed</MudTd>
+        <MudTd DataLabel="Personal Queue Waiting">@context.PersonalQueueWaiting</MudTd>
+        <MudTd DataLabel="Personal Queue Served">@context.PersonalQueueServed</MudTd>
+        <MudTd DataLabel="Number of Digital Tickets">@context.NumberOfDigitalCards</MudTd>
+        <MudTd DataLabel="Average Waiting Time">@context.AvgWaitingTime.ToString("hh\\:mm\\:ss")</MudTd>
+        <MudTd DataLabel="Average Service Time">@context.AvgServiceTime.ToString("hh\\:mm\\:ss")</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudTr>
+            <MudTd ColSpan="14" Class="text-center">
+                No data available
+            </MudTd>
+        </MudTr>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [Parameter]
+    public IEnumerable<LiveBranchDto> Data { get; set; } = Enumerable.Empty<LiveBranchDto>();
+}
