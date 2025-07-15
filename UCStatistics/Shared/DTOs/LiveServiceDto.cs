@@ -1,0 +1,13 @@
+﻿namespace UCStatistics.Shared.DTOs
+{
+    public class LiveServiceDto
+    {
+        public int ServiceCode { get; set; }
+        public string ServiceName { get; set; } = string.Empty;
+        public int ActiveCashiers { get; set; }
+        public int WaitingCustomers { get; set; }
+        public int ServedCustomers { get; set; }
+        public int AvgWaitingTime { get; set; }
+        public int AvgServingTime { get; set; }
+    }
+}
