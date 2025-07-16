@@ -1,0 +1,20 @@
+﻿@namespace UCStatistics.Components.Dialogs
+@inherits ComponentBase
+@using MudBlazor
+
+<MudDialog>
+    <DialogContent>
+        @ContentText
+    </DialogContent>
+    <DialogActions>
+        <MudButton Color="Color.Primary" OnClick="() => MudDialog.Close(DialogResult.Ok(true))">Yes</MudButton>
+        <MudButton Color="Color.Default" OnClick="() => MudDialog.Cancel()">No</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    IMudDialogInstance MudDialog { get; set; }
+    [Parameter]
+    public string ContentText { get; set; }
+}
