@@ -1,0 +1,60 @@
+﻿@using MudBlazor
+@using UCStatistics.Shared.DTOs
+
+<MudTable Items="Data"
+          Bordered="true"
+          Striped="true"
+          Hover="true"
+          Breakpoint="Breakpoint.Sm"
+          Class="table-responsive">
+    <HeaderContent>
+        <MudTh Style="font-weight: bold;">O. Nr</MudTh>
+        <MudTh Style="font-weight: bold;">Branch Name</MudTh>
+        <MudTh Style="font-weight: bold;">Incoming Customers</MudTh>
+        <MudTh Style="font-weight: bold;">Unattended Customers</MudTh>
+        <MudTh Style="font-weight: bold;">Served Customers</MudTh>
+        <MudTh Style="font-weight: bold;">Plastic Cards</MudTh>
+        <MudTh Style="font-weight: bold;">Digital Cards</MudTh>
+        <MudTh Style="font-weight: bold;">Golden Clients</MudTh>
+        <MudTh Style="font-weight: bold;">PA Customers</MudTh>
+        <MudTh Style="font-weight: bold;">Digital Tickets</MudTh>
+        <MudTh Style="font-weight: bold;">Average Waiting Time</MudTh>
+        <MudTh Style="font-weight: bold;">Average Service Time</MudTh>
+        <MudTh Style="font-weight: bold;">Average Customer Time</MudTh>
+        <MudTh Style="font-weight: bold;">Objective Waiting %</MudTh>
+        <MudTh Style="font-weight: bold;">Objective Service %</MudTh>
+        <MudTh Style="font-weight: bold;">Maximum Waiting Time</MudTh>
+        <MudTh Style="font-weight: bold;">Maximum Service Time</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="O. Nr">@context.OfficeNr</MudTd>
+        <MudTd DataLabel="Branch Name">@context.OfficeName</MudTd>
+        <MudTd DataLabel="Incoming Customers">@context.IncomingCustomers</MudTd>
+        <MudTd DataLabel="Unattended Customers">@context.UnattendedCustomers</MudTd>
+        <MudTd DataLabel="Served Customers">@context.ServedCustomers</MudTd>
+        <MudTd DataLabel="Plastic Cards">@context.PlasticCards</MudTd>
+        <MudTd DataLabel="Digital Cards">@context.DigitalCards</MudTd>
+        <MudTd DataLabel="Golden Clients">@context.GoldenClients</MudTd>
+        <MudTd DataLabel="PA Customers">@context.PACustomers</MudTd>
+        <MudTd DataLabel="Digital Tickets">@context.DigitalTickets</MudTd>
+        <MudTd DataLabel="Average Waiting Time">@context.AvgWaitingTime.ToString("hh\\:mm\\:ss")</MudTd>
+        <MudTd DataLabel="Average Service Time">@context.AvgServiceTime.ToString("hh\\:mm\\:ss")</MudTd>
+        <MudTd DataLabel="Average Customer Time">@context.AvgCustomerTime.ToString("hh\\:mm\\:ss")</MudTd>
+        <MudTd DataLabel="Objective Waiting %">@context.ObjectiveWaitingPercent.ToString("F2")</MudTd>
+        <MudTd DataLabel="Objective Service %">@context.ObjectiveServicePercent.ToString("F2")</MudTd>
+        <MudTd DataLabel="Maximum Waiting Time">@context.MaxWaitingTime.ToString("hh\\:mm\\:ss")</MudTd>
+        <MudTd DataLabel="Maximum Service Time">@context.MaxServiceTime.ToString("hh\\:mm\\:ss")</MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudTr>
+            <MudTd ColSpan="14" Class="text-center">
+                No data available
+            </MudTd>
+        </MudTr>
+    </NoRecordsContent>
+</MudTable>
+
+@code {
+    [Parameter]
+    public IEnumerable<SummaryDto> Data { get; set; } = Enumerable.Empty<SummaryDto>();
+}
