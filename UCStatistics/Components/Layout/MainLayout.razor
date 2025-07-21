@@ -1,0 +1,176 @@
+﻿@inherits LayoutComponentBase
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Services
+@using UCStatistics.Models
+@using MudBlazor
+@inject ReportService ReportService
+@inject AuthenticationService AuthService
+@inject IHttpContextAccessor HttpContextAccessor
+
+<MudPopoverProvider />
+<MudThemeProvider />
+<MudSnackbarProvider MaxDisplayedSnackbars="3" PreventDuplicates="true" />
+<MudDialogProvider />
+
+
+@if (isUserLoaded && currentUser != null)
+{
+    <MudLayout>
+        <MudAppBar Elevation="1" Color="Color.Primary">
+            <MudText Typo="Typo.h6">UniCredit Queuing Statistics</MudText>
+            <MudSpacer />
+
+            <!-- Navigation Menu -->
+            <MudButton Href="/historical"
+            Variant="@GetVariant("/historical")"
+            Color="@GetColor("/historical")"
+            StartIcon="@Icons.Material.Filled.BarChart"
+            Class="mr-2">
+                Historical
+            </MudButton>
+
+            <MudButton Href="/live"
+            Variant="@GetVariant("/live")"
+            Color="@GetColor("/live")"
+            StartIcon="@Icons.Material.Filled.AccessTime"
+            Class="mr-2">
+                Live
+            </MudButton>
+
+            <MudButton Href="/settings"
+            Variant="@GetVariant("/settings")"
+            Color="@GetColor("/settings")"
+            StartIcon="@Icons.Material.Filled.Settings"
+            Class="mr-4">
+                Settings
+            </MudButton>
+
+            <!-- User Info -->
+            <MudMenu Icon="@Icons.Material.Filled.Person" Color="Color.Inherit" Direction="Direction.Bottom">
+                <MudMenuItem>
+                    <div class="d-flex flex-column">
+                        <MudText Typo="Typo.body2">@currentUser?.FirstName @currentUser?.LastName</MudText>
+                        <MudText Typo="Typo.caption">@currentUser?.Email</MudText>
+                        <MudText Typo="Typo.caption">@currentUser?.Branch</MudText>
+                        <MudText Typo="Typo.caption" Class="text-primary">@GetRoleDisplayName(currentUser.Role)</MudText>
+                        @if (currentUser?.Role == UserRole.Supervisor && !string.IsNullOrEmpty(currentUser.SupervisorBranch))
+                        {
+                            <MudText Typo="Typo.caption" Class="text-warning">Branch: @currentUser.SupervisorBranch</MudText>
+                        }
+                    </div>
+                </MudMenuItem>
+            </MudMenu>
+        </MudAppBar>
+
+        <MudMainContent>
+            <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="mt-4">
+                <CascadingValue Value="GlobalFilterCriteria">
+                    <CascadingValue Value="currentUser">
+                    @Body
+                    </CascadingValue>
+                </CascadingValue>
+            </MudContainer>
+        </MudMainContent>
+    </MudLayout>
+}
+else if (isUserLoaded && currentUser == null)
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8">
+        <MudAlert Severity="Severity.Error">
+            <MudText>Access Denied</MudText>
+            <MudText Typo="Typo.body2">You are not authorized to access this application.</MudText>
+            <MudText Typo="Typo.body2" Class="mt-2">
+                Required Groups:
+                <ul class="mt-1">
+                    <li>NEMOQ_QMS_Statistics user OPU_(AG)</li>
+                    <li>NEMOQ_QMS_Administrator OPU (AG)</li>
+                    <li>NEMOQ_QMS_Supervisor (AG)</li>
+                </ul>
+            </MudText>
+        </MudAlert>
+    </MudContainer>
+}
+else
+{
+    <MudContainer MaxWidth="MaxWidth.Small" Class="mt-8 text-center">
+        <MudProgressCircular Indeterminate="true" Color="Color.Primary" />
+        <MudText Class="mt-2">Loading user...</MudText>
+    </MudContainer>
+}
+
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    private bool isUserLoaded = false;
+    private ActiveDirectoryUserDto? currentUser;
+
+    private Color GetColor(string href)
+    {
+        return Navigation.Uri.Contains(href)
+            ? Color.Primary
+            : Color.Inherit;
+    } 
+    private FilterCriteria GlobalFilterCriteria { get; set; } = new FilterCriteria
+        {
+            DateFrom = DateTime.Today.AddDays(-7),
+            DateTo = DateTime.Today,
+            Level2Nr = null,
+            Level3Nr = null,
+            OfficeNr = null
+        };
+
+    private List<OfficeInfo> OfficesList { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            // Get authenticated user
+            if (HttpContextAccessor.HttpContext != null)
+            {
+                currentUser = AuthService.GetAuthenticatedUser(HttpContextAccessor.HttpContext);
+            }
+            if (currentUser != null)
+            {
+                OfficesList = (await ReportService.GetOfficesAsync()).ToList();
+
+            // Apply branch filtering for Supervisor role
+            if (currentUser.Role == UserRole.Supervisor && !string.IsNullOrEmpty(currentUser.SupervisorBranch))
+                    {
+                        if (int.TryParse(currentUser.SupervisorBranch, out int branchNumber))
+                        {
+                            OfficesList = OfficesList.Where(o => o.OfficeNr == branchNumber).ToList();
+
+                            // Set default filter to supervisor's branch
+                            GlobalFilterCriteria.OfficeNr = branchNumber;
+                        }
+                    }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading offices: {ex.Message}");
+        }
+        finally
+        {
+            isUserLoaded = true;
+        }
+    }
+
+    private Variant GetVariant(string href)
+    {
+        return Navigation.Uri.Contains(href) ? Variant.Filled : Variant.Text;
+    }
+
+    private string GetRoleDisplayName(UserRole role)
+    {
+        return role switch
+        {
+            UserRole.Administrator => "Administrator",
+            UserRole.StatisticsUser => "Statistics User",
+            UserRole.Supervisor => "Supervisor",
+            UserRole.NoAccess => "No Access",
+            _ => "Unknown"
+        };
+    }
+}
