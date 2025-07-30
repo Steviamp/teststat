@@ -1,0 +1,247 @@
+﻿@page "/live"
+@layout Layout.MainLayout
+@using MudBlazor
+@using UCStatistics.Components.Filters
+@using UCStatistics.Models
+@using UCStatistics.Services
+@using UCStatistics.Shared.DTOs
+@using UCStatistics.Components.Tables
+@inject ReportService ReportService
+@inject IDialogService DialogService
+@inject IJSRuntime JSRuntime
+@inject ExcelExportService ExcelService
+
+<PageTitle>Live Statistics</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Live Statistics</MudText>
+
+<!-- Filter Panel Component -->
+<FilterComponent 
+Criteria="@criteria"
+CriteriaChanged="@OnCriteriaChanged"
+OfficesList="@officesList"
+ServicesList="@servicesList"
+ShowDateFilters="false"
+ShowServiceFilter="@IsServiceTabActive" />
+
+<MudTabs Rounded="true" ActivePanelIndexChanged="@(index => OnTabChanged(index))">
+    <MudTabPanel Text="By Branch">
+        <div class="d-flex justify-space-between align-center mb-3">
+            <MudText Typo="Typo.h6">Branch Statistics</MudText>
+            <div class="d-flex gap-2">
+                <MudButton Color="Color.Success"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="ExportLiveBranchData"
+                           Disabled="!(data?.Any() ?? false)">
+                    Export to Excel
+                </MudButton>
+                <MudButton Color="Color.Success"
+                           Variant="Variant.Filled"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           OnClick="ExportLiveIndividualTicketsData"
+                           Disabled="!(data?.Any() ?? false)">
+                    Export Individual tickets to Excel
+                </MudButton>
+            </div>
+        </div>
+        @if (isLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (data?.Any() ?? false)
+        {
+            <LiveBranchTable Data="data" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">No data for selected filters.</MudAlert>
+        }
+    </MudTabPanel>
+    <MudTabPanel Text="By Service">
+        <div class="d-flex justify-space-between align-center mb-3">
+            <MudText Typo="Typo.h6">Service Statistics</MudText>
+            <MudButton Color="Color.Success"
+                       Variant="Variant.Filled"
+                       StartIcon="@Icons.Material.Filled.Download"
+                       OnClick="ExportLiveServiceData"
+                       Disabled="!(serviceData?.Any() ?? false)">
+                Export to Excel
+            </MudButton>
+        </div>
+        @if (isServiceLoading)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (serviceData?.Any() ?? false)
+        {
+            <LiveServiceTable Data="serviceData" />
+        }
+        else
+        {
+            <MudAlert Severity="Severity.Warning">No data for selected filters.</MudAlert>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    [CascadingParameter] public ActiveDirectoryUserDto? CurrentUser { get; set; }
+
+    private List<OfficeInfo> officesList = new();
+    private List<ServiceInfo> servicesList = new(); 
+    private int activeTabIndex = 0;
+    private bool IsServiceTabActive => activeTabIndex == 1;
+
+    private IEnumerable<LiveBranchDto> data;
+    private IEnumerable<LiveServiceDto> serviceData;
+    private bool isLoading;
+    private bool isServiceLoading;
+    private FilterCriteria criteria = new FilterCriteria{};
+
+    protected override async Task OnInitializedAsync()
+    {
+        officesList = (await ReportService.GetOfficesAsync()).ToList();
+        servicesList = (await ReportService.GetServicesAsync()).ToList();
+        await LoadCurrentTab();
+    }
+
+    private async Task LoadOfficesAndServices()
+    {
+        officesList = (await ReportService.GetOfficesAsync()).ToList();
+        servicesList = (await ReportService.GetServicesAsync()).ToList();
+
+        // Filter offices based on user role
+        if (CurrentUser?.Role == UserRole.Supervisor && !string.IsNullOrEmpty(CurrentUser.SupervisorBranch))
+        {
+            if (int.TryParse(CurrentUser.SupervisorBranch, out int branchNumber))
+            {
+                officesList = officesList.Where(o => o.OfficeNr == branchNumber).ToList();
+                criteria.OfficeNr = branchNumber;
+            }
+        }
+    }
+
+    // Event handler for filter changes
+    private async Task OnCriteriaChanged(FilterCriteria newCriteria)
+    {
+        criteria = newCriteria;
+        await LoadCurrentTab();
+    }
+
+    private async Task LoadData()
+    {
+        isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            data = await ReportService.GetLiveSummaryAsync(criteria);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading live data: {ex.Message}");
+            data = Enumerable.Empty<LiveBranchDto>();
+        }
+        finally
+        {
+            isLoading = false;
+            StateHasChanged();
+        }
+    }
+    private async Task LoadServiceData()
+    {
+        isServiceLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            serviceData = await ReportService.GetLiveServiceSummaryAsync(criteria);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading live service data: {ex.Message}");
+            serviceData = Enumerable.Empty<LiveServiceDto>();
+        }
+        finally
+        {
+            isServiceLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadCurrentTab()
+    {
+        if (activeTabIndex == 0)
+            await LoadData();
+        else
+            await LoadServiceData();
+    }
+
+    private async Task OnTabChanged(int index)
+    {
+        activeTabIndex = index;
+        await LoadCurrentTab();
+    }
+
+    private async Task ExportLiveBranchData()
+    {
+        try
+        {
+            var excelData = await ReportService.ExportLiveSummaryToExcelAsync(criteria);
+            var fileName = $"Live_Branch_Summary.xlsx";
+            await DownloadFileAsync(excelData, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export error: {ex.Message}");
+        }
+    }
+
+    private async Task ExportIndividualTicketsData()
+    {
+        try
+        {
+            var excelData = await ReportService.ExportIndividualTicketsToExcelAsync(criteria);
+            var fileName = $"Tickets_Summary.xlsx";
+            await DownloadFileAsync(excelData, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export error: {ex.Message}");
+        }
+    }
+
+    private async Task ExportLiveServiceData()
+    {
+        try
+        {
+            var excelData = await ReportService.ExportLiveServiceSummaryToExcelAsync(criteria);
+            var fileName = $"Live_Service_Summary.xlsx";
+            await DownloadFileAsync(excelData, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export error: {ex.Message}");
+        }
+    }
+
+    private async Task ExportLiveIndividualTicketsData()
+    {
+        try
+        {
+            var excelData = await ReportService.ExportLiveIndividualTicketsToExcelAsync(criteria);
+            var fileName = $"Live_Tickets_Summary_.xlsx";
+            await DownloadFileAsync(excelData, fileName);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Export error: {ex.Message}");
+        }
+    }
+
+    private async Task DownloadFileAsync(byte[] fileData, string fileName)
+    {
+        var base64 = Convert.ToBase64String(fileData);
+        await JSRuntime.InvokeVoidAsync("downloadFile", base64, fileName);
+    }
+}
